@@ -13,3 +13,4 @@ sauce_connect.log*
 .idea
 /ast*.json
 example.js
+example.hbs

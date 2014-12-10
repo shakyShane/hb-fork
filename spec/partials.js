@@ -23,6 +23,12 @@ describe('partials', function() {
     shouldCompileToWithPartials(string, [hash, {}, {dude: partial}], true, "Dudes:  Empty");
   });
 
+  it('partials with duplicate parameters', function() {
+    shouldThrow(function() {
+      CompilerContext.compile('Dudes: {{>dude dudes foo bar=baz}}');
+    }, Error, 'Unsupported number of partial arguments: 2 - 1:7');
+  });
+
   it("partials with parameters", function() {
     var string = "Dudes: {{#dudes}}{{> dude others=..}}{{/dudes}}";
     var partial = "{{others.foo}}{{name}} ({{url}}) ";
@@ -41,9 +47,16 @@ describe('partials', function() {
 
   it("rendering undefined partial throws an exception", function() {
     shouldThrow(function() {
-        var template = CompilerContext.compile("{{> whatever}}");
-        template();
+      var template = CompilerContext.compile("{{> whatever}}");
+      template();
     }, Handlebars.Exception, 'The partial whatever could not be found');
+  });
+
+  it("registering undefined partial throws an exception", function() {
+    shouldThrow(function() {
+      var undef;
+      handlebarsEnv.registerPartial('undefined_test', undef);
+    }, Handlebars.Exception, 'Attempting to register a partial as undefined');
   });
 
   it("rendering template partial in vm mode throws an exception", function() {
@@ -64,10 +77,10 @@ describe('partials', function() {
   });
 
   it("GH-14: a partial preceding a selector", function() {
-     var string = "Dudes: {{>dude}} {{another_dude}}";
-     var dude = "{{name}}";
-     var hash = {name:"Jeepers", another_dude:"Creepers"};
-     shouldCompileToWithPartials(string, [hash, {}, {dude:dude}], true, "Dudes: Jeepers Creepers", "Regular selectors can follow a partial");
+    var string = "Dudes: {{>dude}} {{another_dude}}";
+    var dude = "{{name}}";
+    var hash = {name:"Jeepers", another_dude:"Creepers"};
+    shouldCompileToWithPartials(string, [hash, {}, {dude:dude}], true, "Dudes: Jeepers Creepers", "Regular selectors can follow a partial");
   });
 
   it("Partials with slash paths", function() {
@@ -149,6 +162,15 @@ describe('partials', function() {
       shouldCompileTo('{{> dude}}', [{}, {}, {dude: 'fail'}], '');
     }, Error, /The partial dude could not be compiled/);
     handlebarsEnv.compile = compile;
+  });
+
+  it('should pass compiler flags', function() {
+    if (Handlebars.compile) {
+      var env = Handlebars.create();
+      env.registerPartial('partial', '{{foo}}');
+      var template = env.compile('{{foo}} {{> partial}}', {noEscape: true});
+      equal(template({foo: '<'}), '< <');
+    }
   });
 
   describe('standalone partials', function() {

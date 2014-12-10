@@ -9,27 +9,38 @@ describe('precompiler', function() {
 
   var Handlebars = require('../lib'),
       Precompiler = require('../lib/precompiler'),
+      fs = require('fs'),
       uglify = require('uglify-js');
 
   var log,
       logFunction,
 
       precompile,
-      minify;
+      minify,
+
+      file,
+      content,
+      writeFileSync;
 
   beforeEach(function() {
     precompile = Handlebars.precompile;
     minify = uglify.minify;
+    writeFileSync = fs.writeFileSync;
 
     logFunction = console.log;
     log = '';
     console.log = function() {
       log += Array.prototype.join.call(arguments, '');
     };
+    fs.writeFileSync = function(_file, _content) {
+      file = _file;
+      content = _content;
+    };
   });
   afterEach(function() {
     Handlebars.precompile = precompile;
     uglify.minify = minify;
+    fs.writeFileSync = writeFileSync;
     console.log = logFunction;
   });
 
@@ -50,7 +61,7 @@ describe('precompiler', function() {
   it('should throw when combining simple and minimized', function() {
     shouldThrow(function() {
       Precompiler.cli({templates: [__dirname], simple: true, min: true});
-    }, Handlebars.Exception, 'Unable to minimze simple output');
+    }, Handlebars.Exception, 'Unable to minimize simple output');
   });
   it('should throw when combining simple and multiple templates', function() {
     shouldThrow(function() {
@@ -87,7 +98,8 @@ describe('precompiler', function() {
   });
   it('should output multiple amd', function() {
     Handlebars.precompile = function() { return 'amd'; };
-    Precompiler.cli({templates: [__dirname + '/artifacts'], amd: true, extension: 'handlebars'});
+    Precompiler.cli({templates: [__dirname + '/artifacts'], amd: true, extension: 'handlebars', namespace: 'foo'});
+    equal(/templates = foo = foo \|\|/.test(log), true);
     equal(/return templates/.test(log), true);
     equal(/template\(amd\)/.test(log), true);
   });
@@ -121,10 +133,42 @@ describe('precompiler', function() {
     equal(log, 'simple\n');
   });
 
+  it('should handle different root', function() {
+    Handlebars.precompile = function() { return 'simple'; };
+    Precompiler.cli({templates: [__dirname + '/artifacts/empty.handlebars'], simple: true, extension: 'handlebars', root: 'foo/'});
+    equal(log, 'simple\n');
+  });
+  it('should output to file system', function() {
+    Handlebars.precompile = function() { return 'simple'; };
+    Precompiler.cli({templates: [__dirname + '/artifacts/empty.handlebars'], simple: true, extension: 'handlebars', output: 'file!'});
+    equal(file, 'file!');
+    equal(content, 'simple\n');
+    equal(log, '');
+  });
+  it('should handle BOM', function() {
+    Handlebars.precompile = function(template) { return template === 'a' ? 'simple' : 'fail'; };
+    Precompiler.cli({templates: [__dirname + '/artifacts/bom.handlebars'], simple: true, extension: 'handlebars', bom: true});
+    equal(log, 'simple\n');
+  });
+
   it('should output minimized templates', function() {
     Handlebars.precompile = function() { return 'amd'; };
     uglify.minify = function() { return {code: 'min'}; };
     Precompiler.cli({templates: [__dirname + '/artifacts/empty.handlebars'], min: true, extension: 'handlebars'});
     equal(log, 'min');
+  });
+
+  it('should output map', function() {
+    Precompiler.cli({templates: [__dirname + '/artifacts/empty.handlebars'], map: 'foo.js.map', extension: 'handlebars'});
+
+    equal(file, 'foo.js.map');
+    equal(/sourceMappingURL=/.test(log), true);
+  });
+
+  it('should output map', function() {
+    Precompiler.cli({templates: [__dirname + '/artifacts/empty.handlebars'], min: true, map: 'foo.js.map', extension: 'handlebars'});
+
+    equal(file, 'foo.js.map');
+    equal(/sourceMappingURL=/.test(log), true);
   });
 });

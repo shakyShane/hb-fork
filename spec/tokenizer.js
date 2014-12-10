@@ -1,3 +1,4 @@
+/*global Handlebars */
 function shouldMatchTokens(result, tokens) {
   for (var index = 0; index < result.length; index++) {
     equals(result[index].name, tokens[index]);
@@ -398,5 +399,22 @@ describe('Tokenizer', function() {
   it('tokenizes nested subexpressions: literals', function() {
     var result = tokenize("{{foo (bar (lol true) false) (baz 1) (blah 'b') (blorg \"c\")}}");
     shouldMatchTokens(result, ['OPEN', 'ID', 'OPEN_SEXPR', 'ID', 'OPEN_SEXPR', 'ID', 'BOOLEAN', 'CLOSE_SEXPR', 'BOOLEAN', 'CLOSE_SEXPR', 'OPEN_SEXPR', 'ID', 'NUMBER', 'CLOSE_SEXPR', 'OPEN_SEXPR', 'ID', 'STRING', 'CLOSE_SEXPR', 'OPEN_SEXPR', 'ID', 'STRING', 'CLOSE_SEXPR', 'CLOSE']);
+  });
+
+  it('tokenizes block params', function() {
+    var result = tokenize("{{#foo as |bar|}}");
+    shouldMatchTokens(result, ['OPEN_BLOCK', 'ID', 'OPEN_BLOCK_PARAMS', 'ID', 'CLOSE_BLOCK_PARAMS', 'CLOSE']);
+
+    result = tokenize("{{#foo as |bar baz|}}");
+    shouldMatchTokens(result, ['OPEN_BLOCK', 'ID', 'OPEN_BLOCK_PARAMS', 'ID', 'ID', 'CLOSE_BLOCK_PARAMS', 'CLOSE']);
+
+    result = tokenize("{{#foo as | bar baz |}}");
+    shouldMatchTokens(result, ['OPEN_BLOCK', 'ID', 'OPEN_BLOCK_PARAMS', 'ID', 'ID', 'CLOSE_BLOCK_PARAMS', 'CLOSE']);
+
+    result = tokenize("{{#foo as as | bar baz |}}");
+    shouldMatchTokens(result, ['OPEN_BLOCK', 'ID', 'ID', 'OPEN_BLOCK_PARAMS', 'ID', 'ID', 'CLOSE_BLOCK_PARAMS', 'CLOSE']);
+
+    result = tokenize("{{else foo as |bar baz|}}");
+    shouldMatchTokens(result, ['OPEN_INVERSE_CHAIN', 'ID', 'OPEN_BLOCK_PARAMS', 'ID', 'ID', 'CLOSE_BLOCK_PARAMS', 'CLOSE']);
   });
 });
